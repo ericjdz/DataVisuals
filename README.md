@@ -3,6 +3,8 @@
 
 This project is a data visualization web application built with Streamlit. It explores global labor market trends, focusing on unemployment, productivity, and job quality, to assess progress toward UN Sustainable Development Goal 8.
 
+You can access the live application here: [https://dve7-datavisuals.streamlit.app](https://dve7-datavisuals.streamlit.app)
+
 ### Features
 *   **Interactive Visualizations**: Explore global trends, regional disparities, and correlations using Plotly charts.
 *   **Data Analysis**: In-depth analysis of World Bank Development Indicators from 1991 to 2023.
@@ -16,7 +18,7 @@ This project is a data visualization web application built with Streamlit. It ex
 
 1.  Clone the repository (or download the source code):
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/ericjdz/DataVisuals.git
     cd <repository-folder>
     ```
 
@@ -34,6 +36,7 @@ streamlit run app.py
 ```
 
 The application will open in your default web browser (usually at `http://localhost:8501`).
+
 
 ### Data Sources
 The analysis uses the **World Bank Indicators (1960–Present)** dataset, specifically:
