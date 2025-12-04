@@ -155,8 +155,9 @@ if df is not None and countries_df is not None:
     
     with v1_col1:
         st.markdown("#### The Youth Deficit")
+        st.caption("**Chart Type:** Time-series Line Chart | **RQ1 & RQ2**")
         st.write("""
-        **RQ1 & RQ2:** The analysis reveals that global labor markets are highly sensitive to macro-economic shocks (2008 Crisis, COVID-19). 
+        The analysis reveals that global labor markets are highly sensitive to macro-economic shocks (2008 Crisis, COVID-19). 
         
         However, the most critical insight regarding SDG 8.6 is the persistent "youth deficit." Youth unemployment has remained consistently double the total rate (approx. 15-16% vs. 7-8%) for over thirty years. 
         
@@ -200,8 +201,9 @@ if df is not None and countries_df is not None:
 
     with v2_col2:
         st.markdown("#### Regional Disparities")
+        st.caption("**Chart Type:** Box Plot (Log Scale) | **RQ3**")
         st.write("""
-        **RQ3:** Figure 2 highlights the immense challenge in achieving SDG 8.2. While North America and Europe exhibit high median productivity, Africa and Asia show significantly lower medians and extreme outliers. 
+        Figure 2 highlights the immense challenge in achieving SDG 8.2. While North America and Europe exhibit high median productivity, Africa and Asia show significantly lower medians and extreme outliers. 
         
         The extreme outliers in Asia and Africa likely represent developed or oil-rich nations, masking the lower productivity of the majority. This suggests that regional averages are insufficient for understanding local economic realities.
         """)
@@ -210,10 +212,11 @@ if df is not None and countries_df is not None:
 
     # --- Viz 3: Map ---
     st.subheader("3. Global Unemployment Rate Map (2022)")
+    st.caption("**Chart Type:** Choropleth Map | **RQ1**")
     st.write("""
     A geographic heatmap showing the intensity of total unemployment rates worldwide. Unemployment is not randomly distributed; it often clusters regionally.
     
-    **Insight:** While high unemployment is a clear sign of distress, low unemployment in developing regions (visible in parts of Southeast Asia and Africa) should be interpreted with caution. It often reflects high informality and "survival employment," where individuals cannot afford to be unemployed.
+    **Insight:** While high unemployment is a clear sign of distress, low unemployment in developing regions (visible in parts of Africa, particularly in the South) should be interpreted with caution. It often reflects high informality and "survival employment," where individuals cannot afford to be unemployed.
     """)
     fig4 = px.choropleth(df_2022, locations="Country",
                         color=col_unemp_total,
@@ -232,6 +235,7 @@ if df is not None and countries_df is not None:
     
     with v4_col1:
         st.markdown("#### Wealth vs. Jobs")
+        st.caption("**Chart Type:** Scatter Plot (Log Scale) | **RQ3**")
         st.write("""
         This scatter plot tests the hypothesis that "richer countries have lower unemployment". The visual evidence suggests **no strong linear correlation**.
         
@@ -274,8 +278,9 @@ if df is not None and countries_df is not None:
 
     with v5_col2:
         st.markdown("#### Structural Transformation")
+        st.caption("**Chart Type:** Dual-Axis Line Chart | **RQ4**")
         st.write("""
-        **RQ4:** The Philippines provides a concrete example of progress toward SDG 8.3. 
+        The Philippines provides a concrete example of progress toward SDG 8.3. 
         
         The chart demonstrates a **strong inverse correlation**: as the economy transitioned toward services (rising from ~40% to nearly 60%), vulnerable employment steadily declined.
         
@@ -286,6 +291,7 @@ if df is not None and countries_df is not None:
 
     # --- Viz 6: Correlation Matrix ---
     st.subheader("6. Correlation Matrix of Key Indicators")
+    st.caption("**Chart Type:** Heatmap | **RQ1-RQ4 (Synthesis)**")
     st.write("""
     This matrix statistically validates the "interwoven" nature of these challenges. 
     *   **Services vs. Vulnerable (-0.83):** Reinforces that expanding the service sector reduces labor vulnerability.
