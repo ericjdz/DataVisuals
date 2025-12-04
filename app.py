@@ -99,16 +99,36 @@ if df is not None and countries_df is not None:
     col_serv = 'Services Employment (%)'
 
     # --- App Layout ---
+    # Sidebar
+    with st.sidebar:
+        st.header("About the Project")
+        st.markdown("""
+        **Authors:**
+        *   De Guzman, Eric Julian
+        *   Fermin, Raudmon Yvhan
+        *   Palanog, Alexandra Antonette
+        
+        *University of Santo Tomas, Manila, Philippines*
+        """)
+        st.markdown("---")
+        st.info("Data Source: World Bank & ILO (1991-2023)")
+
+    # Hero Section
     st.title("Charting the Path to Decent Work")
-    st.subheader("A Visual Exploration of Progress and Disparities in SDG 8")
-    st.markdown("""
-    **Authors:**
-    *   De Guzman, Eric Julian
-    *   Fermin, Raudmon Yvhan
-    *   Palanog, Alexandra Antonette
+    st.markdown("### A Visual Exploration of Progress and Disparities in SDG 8")
     
-    *University of Santo Tomas, Manila, Philippines*
-    """)
+    # Key Metrics (2022)
+    df_2022_metrics = countries_df[countries_df['Year'] == 2022]
+    avg_unemp = df_2022_metrics[col_unemp_total].mean()
+    avg_youth_unemp = df_2022_metrics[col_unemp_youth].mean()
+    med_gdp = df_2022_metrics[col_gdp].median()
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Avg Total Unemployment (2022)", f"{avg_unemp:.1f}%")
+    c2.metric("Avg Youth Unemployment (2022)", f"{avg_youth_unemp:.1f}%", delta=f"{avg_youth_unemp - avg_unemp:.1f}% Gap", delta_color="inverse")
+    c3.metric("Median GDP/Person (2022)", f"${med_gdp:,.0f}")
+    
+    st.markdown("---")
 
     st.header("Data Analysis & Visualizations")
 
@@ -130,57 +150,70 @@ if df is not None and countries_df is not None:
     
     # --- Viz 1: Global Unemployment Trends ---
     st.subheader("1. Global Unemployment Trends (1991-2023)")
-    st.write("""
-    **Chart Type:** Time-series Line Chart
     
-    **RQ1 & RQ2:** The analysis reveals that global labor markets are highly sensitive to macro-economic shocks, with distinct spikes visible during the 2008 financial crisis and the 2020 COVID-19 pandemic. 
+    v1_col1, v1_col2 = st.columns([1, 2])
     
-    However, the most critical insight regarding SDG 8.6 (reducing youth not in employment) is the persistent "youth deficit." The data shows that the youth unemployment rate has remained consistently double that of the total rate (approx. 15-16% vs. 7-8%) for over thirty years. This indicates that despite global economic growth, structural barriers continue to prevent young people from accessing decent work, making them the most vulnerable demographic during economic downturns. The "last in, first out" phenomenon is clearly visible here, where youth unemployment spikes more sharply during crises and recovers more slowly, suggesting that economic recovery efforts often benefit adult workers first.
-    """)
+    with v1_col1:
+        st.markdown("#### The Youth Deficit")
+        st.write("""
+        **RQ1 & RQ2:** The analysis reveals that global labor markets are highly sensitive to macro-economic shocks (2008 Crisis, COVID-19). 
+        
+        However, the most critical insight regarding SDG 8.6 is the persistent "youth deficit." Youth unemployment has remained consistently double the total rate (approx. 15-16% vs. 7-8%) for over thirty years. 
+        
+        The "last in, first out" phenomenon is clearly visible here, where youth unemployment spikes more sharply during crises and recovers more slowly.
+        """)
+
+    with v1_col2:
+        global_trends = countries_df.groupby('Year')[[col_unemp_total, col_unemp_youth]].mean().reset_index()
+        fig1 = go.Figure()
+        fig1.add_trace(go.Scatter(x=global_trends['Year'], y=global_trends[col_unemp_total],
+                            mode='lines', name='Total Unemployment'))
+        fig1.add_trace(go.Scatter(x=global_trends['Year'], y=global_trends[col_unemp_youth],
+                            mode='lines', name='Youth Unemployment'))
+        fig1.update_layout(title='Global Unemployment Trends (1991-2023)',
+                           xaxis_title='Year',
+                           yaxis_title='Unemployment Rate (%)',
+                           legend_title='Indicator',
+                           template='plotly_white',
+                           margin=dict(l=20, r=20, t=40, b=20))
+        fig1.add_vrect(x0=2008, x1=2009, fillcolor="gray", opacity=0.2, layer="below", line_width=0, annotation_text="2008 Crisis", annotation_position="top left")
+        fig1.add_vrect(x0=2020, x1=2021, fillcolor="gray", opacity=0.2, layer="below", line_width=0, annotation_text="COVID-19", annotation_position="top left")
+        st.plotly_chart(fig1, use_container_width=True)
     
-    global_trends = countries_df.groupby('Year')[[col_unemp_total, col_unemp_youth]].mean().reset_index()
-    fig1 = go.Figure()
-    fig1.add_trace(go.Scatter(x=global_trends['Year'], y=global_trends[col_unemp_total],
-                        mode='lines', name='Total Unemployment'))
-    fig1.add_trace(go.Scatter(x=global_trends['Year'], y=global_trends[col_unemp_youth],
-                        mode='lines', name='Youth Unemployment'))
-    fig1.update_layout(title='Global Unemployment Trends (1991-2023)',
-                       xaxis_title='Year',
-                       yaxis_title='Unemployment Rate (%)',
-                       legend_title='Indicator',
-                       template='plotly_white')
-    fig1.add_vrect(x0=2008, x1=2009, fillcolor="gray", opacity=0.2, layer="below", line_width=0, annotation_text="2008 Crisis", annotation_position="top left")
-    fig1.add_vrect(x0=2020, x1=2021, fillcolor="gray", opacity=0.2, layer="below", line_width=0, annotation_text="COVID-19", annotation_position="top left")
-    st.plotly_chart(fig1, use_container_width=True)
+    st.markdown("---")
 
     # --- Viz 2: Productivity by Region ---
     st.subheader("2. Economic Productivity by Region (2022)")
-    st.write("""
-    **Chart Type:** Box Plot (Logarithmic Scale)
     
-    **RQ3:** Figure 2 highlights the immense challenge in achieving SDG 8.2 (higher levels of economic productivity). While North America and Europe exhibit high median productivity with low variance, Africa and Asia show significantly lower medians and extreme outliers. The extreme outliers in Asia and Africa likely represent developed or oil-rich nations within those continents, masking the lower productivity of the majority. This suggests that regional averages are insufficient for understanding local economic realities and that development policies must be highly localized.
+    v2_col1, v2_col2 = st.columns([2, 1])
     
-    This disparity is further contextualized by the scatter plot below, which reveals a counter-intuitive finding: there is no strong linear correlation between a country's wealth and its unemployment rate. High-income nations often maintain moderate unemployment due to frictional factors, while low-income nations may report low unemployment due to the necessity of survival work. This underscores that "unemployment rate" alone is an insufficient metric for decent work in developing contexts; productivity is the missing half of the picture.
-    """)
-    
-    df_2022 = countries_df[countries_df['Year'] == 2022]
-    fig2 = px.box(df_2022, x='Continent', y=col_gdp, 
-                  points="all", 
-                  hover_name='Country Name',
-                  title='Economic Productivity by Region (2022)',
-                  log_y=True,
-                  color='Continent',
-                  template='plotly_white')
-    st.plotly_chart(fig2, use_container_width=True)
+    with v2_col1:
+        df_2022 = countries_df[countries_df['Year'] == 2022]
+        fig2 = px.box(df_2022, x='Continent', y=col_gdp, 
+                      points="all", 
+                      hover_name='Country Name',
+                      title='Economic Productivity by Region (2022)',
+                      log_y=True,
+                      color='Continent',
+                      template='plotly_white')
+        st.plotly_chart(fig2, use_container_width=True)
 
-    # --- Viz 4: Map ---
+    with v2_col2:
+        st.markdown("#### Regional Disparities")
+        st.write("""
+        **RQ3:** Figure 2 highlights the immense challenge in achieving SDG 8.2. While North America and Europe exhibit high median productivity, Africa and Asia show significantly lower medians and extreme outliers. 
+        
+        The extreme outliers in Asia and Africa likely represent developed or oil-rich nations, masking the lower productivity of the majority. This suggests that regional averages are insufficient for understanding local economic realities.
+        """)
+    
+    st.markdown("---")
+
+    # --- Viz 3: Map ---
     st.subheader("3. Global Unemployment Rate Map (2022)")
     st.write("""
-    **Chart Type:** Choropleth Map
+    A geographic heatmap showing the intensity of total unemployment rates worldwide. Unemployment is not randomly distributed; it often clusters regionally.
     
-    A geographic heatmap showing the intensity of total unemployment rates worldwide. Unemployment is not randomly distributed; it often clusters regionally. This map allows policymakers to instantly identify "hotspots" of labor market distress (such as in Southern Africa) that might be missed in a tabular format.
-    
-    While high unemployment is a clear sign of distress, low unemployment in developing regions (visible in parts of Southeast Asia and Africa) should be interpreted with caution. It often reflects high informality and "survival employment," where individuals cannot afford to be unemployed, rather than a robust formal labor market.
+    **Insight:** While high unemployment is a clear sign of distress, low unemployment in developing regions (visible in parts of Southeast Asia and Africa) should be interpreted with caution. It often reflects high informality and "survival employment," where individuals cannot afford to be unemployed.
     """)
     fig4 = px.choropleth(df_2022, locations="Country",
                         color=col_unemp_total,
@@ -188,61 +221,76 @@ if df is not None and countries_df is not None:
                         color_continuous_scale=px.colors.sequential.Plasma,
                         title="Global Unemployment Rate (2022)",
                         template='plotly_white')
+    fig4.update_layout(margin=dict(l=0, r=0, t=30, b=0))
     st.plotly_chart(fig4, use_container_width=True)
+    st.markdown("---")
 
-    # --- Viz 5: Scatter ---
+    # --- Viz 4: Scatter ---
     st.subheader("4. GDP per Person vs. Unemployment Rate (2022)")
-    st.write("""
-    **Chart Type:** Scatter Plot (Log Scale)
     
-    This scatter plot tests the hypothesis that "richer countries have lower unemployment". The visual evidence suggests there is no strong linear correlation between a country's wealth and its unemployment rate. 
+    v4_col1, v4_col2 = st.columns([1, 2])
     
-    High-income nations often maintain moderate unemployment due to frictional factors, while low-income nations may report low unemployment due to the necessity of survival work. This underscores that "unemployment rate" alone is an insufficient metric for decent work in developing contexts; productivity is the missing half of the picture.
-    
-    This chart debunks the assumption that economic growth automatically solves unemployment. In fact, as countries develop, unemployment might initially *rise* as workers can afford to search for better jobs (frictional unemployment) rather than accepting subsistence work immediately.
-    """)
-    fig5 = px.scatter(df_2022, x=col_gdp, 
-                      y=col_unemp_total,
-                      color="Continent",
-                      hover_name="Country Name",
-                      log_x=True,
-                      title="GDP per Person Employed vs. Unemployment Rate (2022)",
-                      template='plotly_white')
-    st.plotly_chart(fig5, use_container_width=True)
+    with v4_col1:
+        st.markdown("#### Wealth vs. Jobs")
+        st.write("""
+        This scatter plot tests the hypothesis that "richer countries have lower unemployment". The visual evidence suggests **no strong linear correlation**.
+        
+        High-income nations often maintain moderate unemployment due to frictional factors, while low-income nations may report low unemployment due to "survival work".
+        
+        **Key Takeaway:** Economic growth alone is not a silver bullet. As countries develop, unemployment might initially *rise* as workers can afford to search for better jobs.
+        """)
 
-    # --- Viz 3: Philippines Case Study ---
+    with v4_col2:
+        fig5 = px.scatter(df_2022, x=col_gdp, 
+                          y=col_unemp_total,
+                          color="Continent",
+                          hover_name="Country Name",
+                          log_x=True,
+                          title="GDP per Person Employed vs. Unemployment Rate (2022)",
+                          template='plotly_white')
+        st.plotly_chart(fig5, use_container_width=True)
+    
+    st.markdown("---")
+
+    # --- Viz 5: Philippines Case Study ---
     st.subheader("5. Philippines Case Study: Services vs. Vulnerable Employment")
-    st.write("""
-    **Chart Type:** Dual-Axis Line Chart
     
-    **RQ4:** The investigation into the Philippines provides a concrete example of progress toward SDG 8.3 (promoting development-oriented policies). The chart demonstrates a strong inverse correlation: as the Philippines transitioned toward a service-based economy (rising from ~40% to nearly 60% employment share), the rate of vulnerable employment steadily declined. 
+    v5_col1, v5_col2 = st.columns([2, 1])
     
-    This confirms that for this developing nation, structural transformation has been a primary driver of improved job quality, successfully moving workers from precarious informal roles into more stable, formal wage employment. The data shows a dramatic structural shift: the service sector's share of employment grew from approximately 40% to nearly 60% over the period. This mirrors the development trajectory of many emerging economies, where services, rather than manufacturing, become the primary engine of job creation.
-    """)
+    with v5_col1:
+        phl_df = df[df['Country'] == 'PHL'].sort_values('Year')
+        fig3 = make_subplots(specs=[[{"secondary_y": True}]])
+        fig3.add_trace(go.Scatter(x=phl_df['Year'], y=phl_df[col_serv],
+                            mode='lines', name='Employment in Services'), secondary_y=False)
+        fig3.add_trace(go.Scatter(x=phl_df['Year'], y=phl_df[col_vuln],
+                            mode='lines', name='Vulnerable Employment', line=dict(dash='dash')), secondary_y=True)
+        fig3.update_layout(title='Philippines: Services vs. Vulnerable Employment (1991-2023)',
+                           xaxis_title='Year',
+                           template='plotly_white',
+                           legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
+        fig3.update_yaxes(title_text="Employment in Services (%)", secondary_y=False)
+        fig3.update_yaxes(title_text="Vulnerable Employment (%)", secondary_y=True)
+        st.plotly_chart(fig3, use_container_width=True)
+
+    with v5_col2:
+        st.markdown("#### Structural Transformation")
+        st.write("""
+        **RQ4:** The Philippines provides a concrete example of progress toward SDG 8.3. 
+        
+        The chart demonstrates a **strong inverse correlation**: as the economy transitioned toward services (rising from ~40% to nearly 60%), vulnerable employment steadily declined.
+        
+        This confirms that structural transformation has been a primary driver of improved job quality, moving workers from precarious informal roles into more stable wage employment.
+        """)
     
-    phl_df = df[df['Country'] == 'PHL'].sort_values('Year')
-    fig3 = make_subplots(specs=[[{"secondary_y": True}]])
-    fig3.add_trace(go.Scatter(x=phl_df['Year'], y=phl_df[col_serv],
-                        mode='lines', name='Employment in Services'), secondary_y=False)
-    fig3.add_trace(go.Scatter(x=phl_df['Year'], y=phl_df[col_vuln],
-                        mode='lines', name='Vulnerable Employment', line=dict(dash='dash')), secondary_y=True)
-    fig3.update_layout(title='Philippines: Services vs. Vulnerable Employment (1991-2023)',
-                       xaxis_title='Year',
-                       template='plotly_white')
-    fig3.update_yaxes(title_text="Employment in Services (%)", secondary_y=False)
-    fig3.update_yaxes(title_text="Vulnerable Employment (%)", secondary_y=True)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.markdown("---")
 
     # --- Viz 6: Correlation Matrix ---
     st.subheader("6. Correlation Matrix of Key Indicators")
     st.write("""
-    **Chart Type:** Heatmap
-    
     This matrix statistically validates the "interwoven" nature of these challenges. 
-    *   The **strong negative correlation (-0.83)** between Services Employment and Vulnerable Employment reinforces the global applicability of the Philippines case study, suggesting that expanding the service sector is a key pathway to reducing labor vulnerability. 
-    *   The **strong positive correlation (0.94)** between Youth and Total Unemployment confirms that youth outcomes are inextricably tied to general labor market health, suggesting that SDG 8 targets cannot be achieved in isolation; policies to boost general economic growth must be paired with targeted interventions for youth and vulnerable workers.
-    
-    The lack of strong correlation between GDP per Person and Total Unemployment (-0.01) further reinforces the finding from the scatter plot: economic growth alone is not a silver bullet for job creation. It must be 'job-rich' growth to effectively reduce unemployment.
+    *   **Services vs. Vulnerable (-0.83):** Reinforces that expanding the service sector reduces labor vulnerability.
+    *   **Youth vs. Total Unemployment (0.94):** Confirms that youth outcomes are inextricably tied to general labor market health.
+    *   **GDP vs. Unemployment (-0.01):** Reinforces that economic growth alone is not a silver bullet for job creation.
     """)
     
     cols = [col_unemp_total, col_unemp_youth, col_gdp, col_vuln, col_serv]
