@@ -211,18 +211,27 @@ if df is not None and countries_df is not None:
     st.markdown("---")
 
     # --- Viz 3: Map ---
-    st.subheader("3. Global Unemployment Rate Map (2022)")
+    st.subheader("3. Global Unemployment Rate Map")
     st.caption("**Chart Type:** Choropleth Map | **RQ1**")
     st.write("""
     A geographic heatmap showing the intensity of total unemployment rates worldwide. Unemployment is not randomly distributed; it often clusters regionally.
     
     **Insight:** While high unemployment is a clear sign of distress, low unemployment in developing regions (visible in parts of Africa, particularly in the South) should be interpreted with caution. It often reflects high informality and "survival employment," where individuals cannot afford to be unemployed.
     """)
-    fig4 = px.choropleth(df_2022, locations="Country",
+
+    # Slider for Year Selection
+    min_year = int(countries_df['Year'].min())
+    max_year = int(countries_df['Year'].max())
+    selected_year = st.slider("Select Year", min_value=min_year, max_value=max_year, value=2022)
+
+    # Filter data for selected year
+    df_map = countries_df[countries_df['Year'] == selected_year]
+
+    fig4 = px.choropleth(df_map, locations="Country",
                         color=col_unemp_total,
                         hover_name="Country Name",
                         color_continuous_scale=px.colors.sequential.Plasma,
-                        title="Global Unemployment Rate (2022)",
+                        title=f"Global Unemployment Rate ({selected_year})",
                         template='plotly_white')
     fig4.update_layout(margin=dict(l=0, r=0, t=30, b=0))
     st.plotly_chart(fig4, use_container_width=True)
