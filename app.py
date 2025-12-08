@@ -135,7 +135,7 @@ if df is not None:
     st.markdown('### A Visual Exploration of Progress and Disparities in SDG 8')
 
     # Tabs for better organization
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(['🌍 Global Trends (RQ1 & RQ2)', '💰 Wealth & Productivity (RQ3)', '🏗️ Structural Transformation (RQ4)', '🔗 Synthesis & Correlations', '✨ New Insights (Gender/Edu)'])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(['Global Trends (RQ1 & RQ2)', 'Wealth & Productivity (RQ3)', 'Structural Transformation (RQ4)', 'Synthesis & Correlations', 'New Insights (Gender/Edu)'])
 
     # --- TAB 1: GLOBAL TRENDS (RQ1 & RQ2) ---
     with tab1:
