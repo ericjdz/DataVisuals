@@ -95,6 +95,10 @@ def load_and_process_data():
 
     countries_df.rename(columns=col_map, inplace=True)
     
+    # Calculate Estimated Counts (Frequency)
+    # Total Unemployed = (Total Unemployment % / 100) * Labor Force Size
+    countries_df['Total Unemployed Count'] = (countries_df['Total Unemployment (%)'] / 100) * countries_df['Labor Force Size']
+    
     return countries_df
 
 # Load data
@@ -152,67 +156,106 @@ if df is not None:
         col1.metric('Avg Total Unemployment', f'{avg_unemp:.1f}%')
         col2.metric('Avg Youth Unemployment', f'{avg_youth_unemp:.1f}%', delta=f'{avg_youth_unemp - avg_unemp:.1f}% Gap', delta_color='inverse')
         col3.metric('Avg NEET Rate', f'{avg_neet:.1f}%' if pd.notna(avg_neet) else 'N/A')
-        col4.metric('Median GDP/Person', f'')
+        col4.metric('Median GDP/Person', f'${med_gdp:,.0f}' if pd.notna(med_gdp) else 'N/A')
 
         st.markdown('---')
 
         # Viz 1: Global Trends
         st.subheader('1. Global Unemployment Trends (1991-2023)')
         
-        v1_col1, v1_col2 = st.columns([1, 2])
+        # Layout: Chart (Left) - Stats (Right)
+        v1_col1, v1_col2 = st.columns([3, 1])
         
         with v1_col1:
-            st.markdown('#### The Youth Deficit')
-            st.caption('**Chart Type:** Time-series Line Chart | **RQ1 & RQ2**')
-            st.write('''
-            The analysis reveals that global labor markets are highly sensitive to macro-economic shocks (2008 Crisis, COVID-19). 
+            # Group by Year and calculate means and sums
+            trend_df = filtered_df.groupby('Year').agg({
+                'Total Unemployment (%)': 'mean',
+                'Youth Unemployment (%)': 'mean',
+                'Total Unemployed Count': 'sum'
+            }).reset_index()
             
-            However, the most critical insight regarding SDG 8.6 is the persistent **youth deficit.** Youth unemployment has remained consistently double the total rate (approx. 15-16% vs. 7-8%) for over thirty years. 
+            # Create a subplot with 2 y-axes or 2 rows
+            fig1 = make_subplots(rows=2, cols=1, 
+                                 shared_xaxes=True, 
+                                 vertical_spacing=0.1,
+                                 subplot_titles=('Unemployment Rates (%)', 'Estimated Total Unemployed Population (Count)'))
             
-            The last in, first out phenomenon is clearly visible here, where youth unemployment spikes more sharply during crises and recovers more slowly.
-            ''')
+            # Trace 1: Rates
+            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Total Unemployment (%)'],
+                                mode='lines', name='Total Unemployment (%)', line=dict(color='blue')), row=1, col=1)
+            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Youth Unemployment (%)'],
+                                mode='lines', name='Youth Unemployment (%)', line=dict(color='red')), row=1, col=1)
+            
+            # Trace 2: Counts (Frequency)
+            fig1.add_trace(go.Bar(x=trend_df['Year'], y=trend_df['Total Unemployed Count'],
+                                name='Total Unemployed (Count)', marker_color='orange', opacity=0.6), row=2, col=1)
+            
+            # Add crisis annotations to the top chart
+            fig1.add_vrect(x0=2008, x1=2009, fillcolor='gray', opacity=0.2, layer='below', line_width=0, annotation_text='2008 Crisis', annotation_position='top left', row=1, col=1)
+            fig1.add_vrect(x0=2020, x1=2021, fillcolor='gray', opacity=0.2, layer='below', line_width=0, annotation_text='COVID-19', annotation_position='top left', row=1, col=1)
+            
+            fig1.update_layout(height=600, template='plotly_white', hovermode='x unified', showlegend=True)
+            st.plotly_chart(fig1, use_container_width=True)
 
         with v1_col2:
-            # Group by Year and calculate means
-            trend_df = filtered_df.groupby('Year')[['Total Unemployment (%)', 'Youth Unemployment (%)']].mean().reset_index()
+            st.markdown('#### Quantitative Insights')
             
-            fig1 = go.Figure()
-            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Total Unemployment (%)'],
-                                mode='lines', name='Total Unemployment'))
-            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Youth Unemployment (%)'],
-                                mode='lines', name='Youth Unemployment'))
+            # Calculate stats for the whole period
+            max_youth_unemp = trend_df['Youth Unemployment (%)'].max()
+            max_youth_year = trend_df.loc[trend_df['Youth Unemployment (%)'].idxmax(), 'Year']
             
-            # Add crisis annotations
-            fig1.add_vrect(x0=2008, x1=2009, fillcolor='gray', opacity=0.2, layer='below', line_width=0, annotation_text='2008 Crisis', annotation_position='top left')
-            fig1.add_vrect(x0=2020, x1=2021, fillcolor='gray', opacity=0.2, layer='below', line_width=0, annotation_text='COVID-19', annotation_position='top left')
+            min_youth_unemp = trend_df['Youth Unemployment (%)'].min()
             
-            fig1.update_layout(xaxis_title='Year', yaxis_title='Rate (%)', template='plotly_white', hovermode='x unified')
-            st.plotly_chart(fig1, use_container_width=True)
+            avg_gap = (trend_df['Youth Unemployment (%)'] - trend_df['Total Unemployment (%)']).mean()
+            
+            total_unemployed_latest = trend_df.iloc[-1]['Total Unemployed Count']
+            
+            st.metric("Peak Youth Unemployment", f"{max_youth_unemp:.1f}%", f"Year: {int(max_youth_year)}")
+            st.metric("Avg Youth-Total Gap", f"{avg_gap:.1f}%")
+            st.metric("Latest Est. Unemployed", f"{total_unemployed_latest/1e6:.1f}M")
+            
+            st.info('''
+            **Analysis:**
+            The bar chart ("Frequency Count") shows the absolute magnitude of unemployment, which may rise even if rates are stable due to population growth.
+            
+            The line chart confirms the "Youth Deficit", with youth rates consistently higher.
+            ''')
 
         st.markdown('---')
 
         # Viz 2: Map
         st.subheader(f'2. Global Unemployment Map ({selected_year})')
-        st.caption('**Chart Type:** Choropleth Map | **RQ1**')
-        st.write('''
-        A geographic heatmap showing the intensity of total unemployment rates worldwide. Unemployment is not randomly distributed; it often clusters regionally.
         
-        **Insight:** While high unemployment is a clear sign of distress, low unemployment in developing regions (visible in parts of Africa) should be interpreted with caution. It often reflects high informality and survival employment, where individuals cannot afford to be unemployed.
-        ''')
+        v2_col1, v2_col2 = st.columns([3, 1])
         
-        fig_map = px.choropleth(year_df, locations='Country',
-                            color='Total Unemployment (%)',
-                            hover_name='Country Name',
-                            color_continuous_scale=px.colors.sequential.Plasma,
-                            template='plotly_white')
-        fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0))
-        st.plotly_chart(fig_map, use_container_width=True)
+        with v2_col1:
+            fig_map = px.choropleth(year_df, locations='Country',
+                                color='Total Unemployment (%)',
+                                hover_name='Country Name',
+                                color_continuous_scale=px.colors.sequential.Plasma,
+                                template='plotly_white')
+            fig_map.update_layout(margin=dict(l=0, r=0, t=0, b=0))
+            st.plotly_chart(fig_map, use_container_width=True)
+            
+        with v2_col2:
+            st.markdown('#### Regional Stats')
+            # Top 5 Highest Unemployment
+            top_5 = year_df.nlargest(5, 'Total Unemployment (%)')[['Country Name', 'Total Unemployment (%)']]
+            st.write("**Highest Unemployment:**")
+            for i, row in top_5.iterrows():
+                st.write(f"{row['Country Name']}: **{row['Total Unemployment (%)']:.1f}%**")
+            
+            st.write("---")
+            # Regional Averages
+            reg_avg = year_df.groupby('Continent')['Total Unemployment (%)'].mean().sort_values(ascending=False)
+            st.write("**Avg by Continent:**")
+            st.dataframe(reg_avg.to_frame().style.format("{:.1f}%"), use_container_width=True)
 
     # --- TAB 2: WEALTH & PRODUCTIVITY (RQ3) ---
     with tab2:
         st.subheader('3. Economic Productivity by Region')
         
-        col_r1, col_r2 = st.columns([2, 1])
+        col_r1, col_r2 = st.columns([3, 1])
         
         with col_r1:
             # Viz 3: Box Plot
@@ -226,34 +269,30 @@ if df is not None:
             st.plotly_chart(fig_box, use_container_width=True)
             
         with col_r2:
-            st.markdown('#### Regional Disparities')
-            st.caption('**Chart Type:** Box Plot (Log Scale) | **RQ3**')
-            st.write('''
-            Figure highlights the immense challenge in achieving SDG 8.2. While North America and Europe exhibit high median productivity, Africa and Asia show significantly lower medians and extreme outliers. 
+            st.markdown('#### Regional Stats')
             
-            The extreme outliers in Asia and Africa likely represent developed or oil-rich nations, masking the lower productivity of the majority. This suggests that regional averages are insufficient for understanding local economic realities.
-            ''')
+            # Calculate Median GDP by Continent
+            med_gdp_cont = year_df.groupby('Continent')['GDP per Person ($)'].median().sort_values(ascending=False)
+            
+            st.write("**Median GDP ($):**")
+            st.dataframe(med_gdp_cont.to_frame().style.format("${:,.0f}"), use_container_width=True)
+            
+            # Richest and Poorest in selection
+            if not year_df.empty:
+                richest = year_df.loc[year_df['GDP per Person ($)'].idxmax()]
+                poorest = year_df.loc[year_df['GDP per Person ($)'].idxmin()]
+                
+                st.metric("Highest GDP", f"${richest['GDP per Person ($)']:,.0f}", richest['Country Name'])
+                st.metric("Lowest GDP", f"${poorest['GDP per Person ($)']:,.0f}", poorest['Country Name'])
 
         st.markdown('---')
         
         # Viz 4: Animated Scatter
         st.subheader('4. Wealth vs. Jobs: Evolution Over Time')
         
-        v4_col1, v4_col2 = st.columns([1, 2])
+        v4_col1, v4_col2 = st.columns([3, 1])
         
         with v4_col1:
-            st.markdown('#### Wealth vs. Jobs')
-            st.caption('**Chart Type:** Animated Scatter Plot | **RQ3**')
-            st.write('''
-            This scatter plot tests the hypothesis that richer countries have lower unemployment. The visual evidence suggests **no strong linear correlation**.
-            
-            High-income nations often maintain moderate unemployment due to frictional factors, while low-income nations may report low unemployment due to survival work.
-            
-            **Key Takeaway:** Economic growth alone is not a silver bullet. As countries develop, unemployment might initially *rise* as workers can afford to search for better jobs.
-            ''')
-            st.info('💡 **Interaction:** Press Play to see how countries have moved over the last 30 years.')
-
-        with v4_col2:
             # For animation, we need the full filtered dataset, not just the selected year
             # We drop NaNs in the specific columns to avoid animation errors
             anim_df = filtered_df.dropna(subset=['GDP per Person ($)', 'Total Unemployment (%)', 'Continent', 'Country Name', 'Labor Force Size'])
@@ -269,6 +308,33 @@ if df is not None:
             
             st.plotly_chart(fig_anim, use_container_width=True)
 
+        with v4_col2:
+            st.markdown('#### Correlation Analysis')
+            
+            # Calculate correlation for the selected year
+            corr_df = year_df.dropna(subset=['GDP per Person ($)', 'Total Unemployment (%)'])
+            if not corr_df.empty:
+                correlation = corr_df['GDP per Person ($)'].corr(corr_df['Total Unemployment (%)'])
+                st.metric(f"Correlation (r) in {selected_year}", f"{correlation:.2f}")
+                
+                st.write(f"**Sample Size:** {len(corr_df)} countries")
+                
+                if abs(correlation) < 0.3:
+                    strength = "Weak"
+                elif abs(correlation) < 0.7:
+                    strength = "Moderate"
+                else:
+                    strength = "Strong"
+                
+                st.info(f"**Interpretation:** {strength} {'negative' if correlation < 0 else 'positive'} correlation.")
+            
+            st.caption('**Chart Type:** Animated Scatter Plot | **RQ3**')
+            st.write('''
+            This scatter plot tests the hypothesis that richer countries have lower unemployment.
+            
+            **Key Takeaway:** Economic growth alone is not a silver bullet. As countries develop, unemployment might initially *rise* as workers can afford to search for better jobs.
+            ''')
+
     # --- TAB 3: STRUCTURAL TRANSFORMATION (RQ4) ---
     with tab3:
         st.subheader('5. Structural Transformation & Vulnerability')
@@ -281,7 +347,7 @@ if df is not None:
         # Filter for country
         country_data = df[df['Country Name'] == selected_country].sort_values('Year')
         
-        col_d1, col_d2 = st.columns([2, 1])
+        col_d1, col_d2 = st.columns([3, 1])
         
         with col_d1:
             # Dual Axis Chart (Services vs Vulnerable)
@@ -300,7 +366,21 @@ if df is not None:
             st.plotly_chart(fig_vuln, use_container_width=True)
 
         with col_d2:
-            st.markdown('#### Structural Transformation')
+            st.markdown('#### Country Stats')
+            
+            if not country_data.empty:
+                latest_yr = country_data['Year'].max()
+                latest_row = country_data[country_data['Year'] == latest_yr].iloc[0]
+                
+                earliest_yr = country_data['Year'].min()
+                earliest_row = country_data[country_data['Year'] == earliest_yr].iloc[0]
+                
+                serv_change = latest_row['Services Employment (%)'] - earliest_row['Services Employment (%)']
+                vuln_change = latest_row['Vulnerable Employment (%)'] - earliest_row['Vulnerable Employment (%)']
+                
+                st.metric("Services Emp (Latest)", f"{latest_row['Services Employment (%)']:.1f}%", f"{serv_change:+.1f}% since {earliest_yr}")
+                st.metric("Vulnerable Emp (Latest)", f"{latest_row['Vulnerable Employment (%)']:.1f}%", f"{vuln_change:+.1f}% since {earliest_yr}", delta_color='inverse')
+
             st.caption('**Chart Type:** Dual-Axis Line Chart | **RQ4**')
             
             if selected_country == 'Philippines':
@@ -337,14 +417,6 @@ if df is not None:
         
         col_s1, col_s2 = st.columns([1, 2])
         
-        with col_s1:
-            st.write('''
-            This matrix statistically validates the interwoven nature of these challenges. 
-            *   **Services vs. Vulnerable (-0.83):** Reinforces that expanding the service sector reduces labor vulnerability.
-            *   **Youth vs. Total Unemployment (0.94):** Confirms that youth outcomes are inextricably tied to general labor market health.
-            *   **GDP vs. Unemployment (-0.01):** Reinforces that economic growth alone is not a silver bullet for job creation.
-            ''')
-        
         with col_s2:
             cols = ['Total Unemployment (%)', 'Youth Unemployment (%)', 'GDP per Person ($)', 'Vulnerable Employment (%)', 'Services Employment (%)']
             corr_df = filtered_df[cols]
@@ -353,36 +425,96 @@ if df is not None:
                             color_continuous_scale='RdBu_r', origin='lower')
             st.plotly_chart(fig6, use_container_width=True)
 
+        with col_s1:
+            st.markdown('#### Key Relationships')
+            
+            # Find strongest correlations (excluding self-correlation)
+            # Mask diagonal
+            mask = pd.DataFrame(False, index=corr_matrix.index, columns=corr_matrix.columns)
+            for i in range(len(corr_matrix)):
+                mask.iloc[i, i] = True
+            
+            masked_corr = corr_matrix.mask(mask)
+            
+            strongest_pos = masked_corr.stack().idxmax()
+            max_val = masked_corr.max().max()
+            
+            strongest_neg = masked_corr.stack().idxmin()
+            min_val = masked_corr.min().min()
+            
+            st.metric("Strongest Positive", f"{max_val:.2f}", f"{strongest_pos[0]} & {strongest_pos[1]}")
+            st.metric("Strongest Negative", f"{min_val:.2f}", f"{strongest_neg[0]} & {strongest_neg[1]}")
+            
+            st.write('''
+            **Interpretation:**
+            *   **Services vs. Vulnerable:** Strong negative correlation confirms that expanding the service sector reduces labor vulnerability.
+            *   **Youth vs. Total Unemployment:** Very high positive correlation confirms that youth outcomes are inextricably tied to general labor market health.
+            ''')
+
     # --- TAB 5: NEW INSIGHTS ---
     with tab5:
         st.header('Further Exploration: Gender & Education')
         st.write('Expanding the analysis beyond the core research questions to explore Gender Parity and Education outcomes.')
         
         st.subheader('The Gender Divide')
-        # Prepare data for Gender Gap
-        gender_cols = ['Male Unemployment (%)', 'Female Unemployment (%)']
-        gender_df = year_df.dropna(subset=gender_cols)
-        gender_agg = gender_df.groupby('Continent')[gender_cols].mean().reset_index()
-        gender_melt = gender_agg.melt(id_vars='Continent', var_name='Metric', value_name='Rate')
         
-        fig_gender = px.bar(gender_melt, x='Continent', y='Rate', color='Metric',
-                            barmode='group', title=f'Male vs. Female Unemployment by Region ({selected_year})',
-                            template='plotly_white', color_discrete_sequence=['#1f77b4', '#e377c2'])
-        st.plotly_chart(fig_gender, use_container_width=True)
+        col_g1, col_g2 = st.columns([3, 1])
         
+        with col_g1:
+            # Prepare data for Gender Gap
+            gender_cols = ['Male Unemployment (%)', 'Female Unemployment (%)']
+            gender_df = year_df.dropna(subset=gender_cols)
+            gender_agg = gender_df.groupby('Continent')[gender_cols].mean().reset_index()
+            gender_melt = gender_agg.melt(id_vars='Continent', var_name='Metric', value_name='Rate')
+            
+            fig_gender = px.bar(gender_melt, x='Continent', y='Rate', color='Metric',
+                                barmode='group', title=f'Male vs. Female Unemployment by Region ({selected_year})',
+                                template='plotly_white', color_discrete_sequence=['#1f77b4', '#e377c2'])
+            st.plotly_chart(fig_gender, use_container_width=True)
+            
+        with col_g2:
+            st.markdown('#### Gender Gap Stats')
+            if not gender_agg.empty:
+                gender_agg['Gap'] = gender_agg['Female Unemployment (%)'] - gender_agg['Male Unemployment (%)']
+                largest_gap_cont = gender_agg.loc[gender_agg['Gap'].idxmax()]
+                
+                avg_f = gender_df['Female Unemployment (%)'].mean()
+                avg_m = gender_df['Male Unemployment (%)'].mean()
+                
+                st.metric("Global Avg Female Unemp", f"{avg_f:.1f}%")
+                st.metric("Global Avg Male Unemp", f"{avg_m:.1f}%")
+                st.metric("Largest Gap Region", f"{largest_gap_cont['Continent']}", f"{largest_gap_cont['Gap']:.1f}% Gap")
+
         st.markdown('---')
         
         st.subheader('Education Paradox')
-        st.write('Does higher education enrollment correlate with lower youth unemployment? In some regions, high enrollment might coexist with high unemployment due to skills mismatch.')
         
-        # Scatter: Tertiary Enrollment vs Youth Unemployment
-        edu_scatter_df = year_df.dropna(subset=['Tertiary Enrollment (%)', 'Youth Unemployment (%)'])
+        col_e1, col_e2 = st.columns([3, 1])
         
-        if not edu_scatter_df.empty:
-            fig_edu = px.scatter(edu_scatter_df, x='Tertiary Enrollment (%)', y='Youth Unemployment (%)',
-                                 color='Continent', hover_name='Country Name',
-                                 trendline='ols',
-                                 title=f'Tertiary Enrollment vs. Youth Unemployment ({selected_year})',
-                                 template='plotly_white')
-            st.plotly_chart(fig_edu, use_container_width=True)
+        with col_e1:
+            st.write('Does higher education enrollment correlate with lower youth unemployment? In some regions, high enrollment might coexist with high unemployment due to skills mismatch.')
+            
+            # Scatter: Tertiary Enrollment vs Youth Unemployment
+            edu_scatter_df = year_df.dropna(subset=['Tertiary Enrollment (%)', 'Youth Unemployment (%)'])
+            
+            if not edu_scatter_df.empty:
+                fig_edu = px.scatter(edu_scatter_df, x='Tertiary Enrollment (%)', y='Youth Unemployment (%)',
+                                     color='Continent', hover_name='Country Name',
+                                     trendline='ols',
+                                     title=f'Tertiary Enrollment vs. Youth Unemployment ({selected_year})',
+                                     template='plotly_white')
+                st.plotly_chart(fig_edu, use_container_width=True)
+        
+        with col_e2:
+            st.markdown('#### Correlation')
+            if not edu_scatter_df.empty:
+                corr_edu = edu_scatter_df['Tertiary Enrollment (%)'].corr(edu_scatter_df['Youth Unemployment (%)'])
+                st.metric("Correlation (r)", f"{corr_edu:.2f}")
+                
+                if abs(corr_edu) < 0.3:
+                    st.info("Weak correlation suggests education alone doesn't guarantee jobs.")
+                elif corr_edu > 0:
+                    st.warning("Positive correlation! Higher education might be linked to higher youth unemployment in some contexts (e.g., 'wait unemployment').")
+                else:
+                    st.success("Negative correlation. Higher education is linked to lower unemployment.")
 
