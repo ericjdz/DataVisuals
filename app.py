@@ -163,70 +163,122 @@ if df is not None:
         # Viz 1: Global Trends
         st.subheader('1. Global Unemployment Trends (1991-2023)')
         
-        # Layout: Chart (Left) - Stats (Right)
-        v1_col1, v1_col2 = st.columns([3, 1])
+        # Add View Mode Selector
+        view_mode = st.radio("View Mode:", ["Global/Regional Snapshot (Detailed)", "Comparative Trends (Multi-Country)"], horizontal=True)
         
-        with v1_col1:
-            # Group by Year and calculate means and sums
-            trend_df = filtered_df.groupby('Year').agg({
-                'Total Unemployment (%)': 'mean',
-                'Youth Unemployment (%)': 'mean',
-                'Total Unemployed Count': 'sum'
-            }).reset_index()
+        if view_mode == "Global/Regional Snapshot (Detailed)":
+            # Layout: Chart (Left) - Stats (Right)
+            v1_col1, v1_col2 = st.columns([3, 1])
             
-            # Create Dual-Axis Chart to show Rate vs Volume
-            fig1 = make_subplots(specs=[[{'secondary_y': True}]])
-            
-            # Trace 1: Total Unemployed Count (Bars - Background Context)
-            fig1.add_trace(go.Bar(x=trend_df['Year'], y=trend_df['Total Unemployed Count'],
-                                name='Total Unemployed Population (Count)', marker_color='lightgray', opacity=0.5), secondary_y=True)
-            
-            # Trace 2: Rates (Lines - Foreground Focus)
-            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Total Unemployment (%)'],
-                                mode='lines', name='Total Unemployment Rate (%)', line=dict(color='blue', width=3)), secondary_y=False)
-            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Youth Unemployment (%)'],
-                                mode='lines', name='Youth Unemployment Rate (%)', line=dict(color='red', width=3)), secondary_y=False)
-            
-            # Add crisis annotations
-            fig1.add_vrect(x0=2008, x1=2009, fillcolor='gray', opacity=0.1, layer='below', line_width=0, annotation_text='2008 Crisis', annotation_position='top left')
-            fig1.add_vrect(x0=2020, x1=2021, fillcolor='gray', opacity=0.1, layer='below', line_width=0, annotation_text='COVID-19', annotation_position='top left')
-            
-            fig1.update_layout(
-                title='Global Trends: Unemployment Rates vs. Absolute Counts',
-                xaxis_title='Year',
-                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
-                template='plotly_white',
-                hovermode='x unified',
-                height=500
-            )
-            
-            fig1.update_yaxes(title_text='Unemployment Rate (%)', secondary_y=False)
-            fig1.update_yaxes(title_text='Total Unemployed (Count)', secondary_y=True, showgrid=False)
-            
-            st.plotly_chart(fig1, use_container_width=True)
+            with v1_col1:
+                # Group by Year and calculate means and sums
+                trend_df = filtered_df.groupby('Year').agg({
+                    'Total Unemployment (%)': 'mean',
+                    'Youth Unemployment (%)': 'mean',
+                    'Total Unemployed Count': 'sum'
+                }).reset_index()
+                
+                # Create Dual-Axis Chart to show Rate vs Volume
+                fig1 = make_subplots(specs=[[{'secondary_y': True}]])
+                
+                # Trace 1: Total Unemployed Count (Bars - Background Context)
+                fig1.add_trace(go.Bar(x=trend_df['Year'], y=trend_df['Total Unemployed Count'],
+                                    name='Total Unemployed Population (Count)', marker_color='lightgray', opacity=0.5), secondary_y=True)
+                
+                # Trace 2: Rates (Lines - Foreground Focus)
+                fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Total Unemployment (%)'],
+                                    mode='lines', name='Total Unemployment Rate (%)', line=dict(color='blue', width=3)), secondary_y=False)
+                fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Youth Unemployment (%)'],
+                                    mode='lines', name='Youth Unemployment Rate (%)', line=dict(color='red', width=3)), secondary_y=False)
+                
+                # Add crisis annotations
+                fig1.add_vrect(x0=2008, x1=2009, fillcolor='gray', opacity=0.1, layer='below', line_width=0, annotation_text='2008 Crisis', annotation_position='top left')
+                fig1.add_vrect(x0=2020, x1=2021, fillcolor='gray', opacity=0.1, layer='below', line_width=0, annotation_text='COVID-19', annotation_position='top left')
+                
+                fig1.update_layout(
+                    title='Global Trends: Unemployment Rates vs. Absolute Counts',
+                    xaxis_title='Year',
+                    legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                    template='plotly_white',
+                    hovermode='x unified',
+                    height=500
+                )
+                
+                fig1.update_yaxes(title_text='Unemployment Rate (%)', secondary_y=False)
+                fig1.update_yaxes(title_text='Total Unemployed (Count)', secondary_y=True, showgrid=False)
+                
+                st.plotly_chart(fig1, use_container_width=True)
 
-        with v1_col2:
-            st.markdown('#### Rate vs. Volume')
+            with v1_col2:
+                st.markdown('#### Rate vs. Volume')
+                
+                # Calculate stats for the whole period
+                max_youth_unemp = trend_df['Youth Unemployment (%)'].max()
+                max_youth_year = trend_df.loc[trend_df['Youth Unemployment (%)'].idxmax(), 'Year']
+                
+                total_unemployed_latest = trend_df.iloc[-1]['Total Unemployed Count']
+                total_unemployed_peak = trend_df['Total Unemployed Count'].max()
+                
+                st.metric("Peak Youth Rate", f"{max_youth_unemp:.1f}%", f"Year: {int(max_youth_year)}")
+                st.metric("Latest Total Unemployed", f"{total_unemployed_latest/1e6:.1f}M")
+                st.metric("Peak Total Unemployed", f"{total_unemployed_peak/1e6:.1f}M")
+                
+                st.warning('''
+                **Interpretation Note:**
+                While **Youth Unemployment Rates** (Red Line) are drastically higher, they represent a smaller subset of the population.
+                
+                The **Total Unemployment Rate** (Blue Line) appears lower because it is "diluted" by the larger, more stable Adult workforce.
+                
+                The **Grey Bars** show the actual number of unemployed people, which continues to rise due to population growth even when rates stabilize.
+                ''')
+        
+        else: # Comparative Trends
+            st.markdown("#### Compare Trends Across Countries/Continents")
             
-            # Calculate stats for the whole period
-            max_youth_unemp = trend_df['Youth Unemployment (%)'].max()
-            max_youth_year = trend_df.loc[trend_df['Youth Unemployment (%)'].idxmax(), 'Year']
+            comp_col1, comp_col2 = st.columns([1, 3])
             
-            total_unemployed_latest = trend_df.iloc[-1]['Total Unemployed Count']
-            total_unemployed_peak = trend_df['Total Unemployed Count'].max()
+            with comp_col1:
+                comp_type = st.selectbox("Compare By:", ["Continent", "Country"])
+                comp_metric = st.selectbox("Metric:", ["Total Unemployment (%)", "Youth Unemployment (%)", "Total Unemployed Count"])
+                
+                if comp_type == "Continent":
+                    options = sorted(df['Continent'].unique())
+                    default_sel = options[:3] if len(options) >= 3 else options
+                    selection = st.multiselect("Select Continents:", options, default=default_sel)
+                    comp_data = df[df['Continent'].isin(selection)]
+                    group_col = 'Continent'
+                else:
+                    options = sorted(df['Country Name'].unique())
+                    default_sel = ['United States', 'China', 'India']
+                    # Filter defaults to exist in data
+                    default_sel = [x for x in default_sel if x in options]
+                    selection = st.multiselect("Select Countries:", options, default=default_sel)
+                    comp_data = df[df['Country Name'].isin(selection)]
+                    group_col = 'Country Name'
             
-            st.metric("Peak Youth Rate", f"{max_youth_unemp:.1f}%", f"Year: {int(max_youth_year)}")
-            st.metric("Latest Total Unemployed", f"{total_unemployed_latest/1e6:.1f}M")
-            st.metric("Peak Total Unemployed", f"{total_unemployed_peak/1e6:.1f}M")
-            
-            st.warning('''
-            **Interpretation Note:**
-            While **Youth Unemployment Rates** (Red Line) are drastically higher, they represent a smaller subset of the population.
-            
-            The **Total Unemployment Rate** (Blue Line) appears lower because it is "diluted" by the larger, more stable Adult workforce.
-            
-            The **Grey Bars** show the actual number of unemployed people, which continues to rise due to population growth even when rates stabilize.
-            ''')
+            with comp_col2:
+                if not selection:
+                    st.warning("Please select at least one entity to compare.")
+                else:
+                    # Aggregate if comparing continents, otherwise just take country data
+                    if comp_type == "Continent":
+                        # Need to aggregate properly. For rates, mean is okay-ish for visualization, but weighted average is better. 
+                        # For simplicity in this viz tool, we'll use mean of rates, sum of counts.
+                        if "Count" in comp_metric:
+                            comp_trend = comp_data.groupby(['Year', 'Continent'])[comp_metric].sum().reset_index()
+                        else:
+                            comp_trend = comp_data.groupby(['Year', 'Continent'])[comp_metric].mean().reset_index()
+                    else:
+                        # Country level - just filter
+                        if "Count" in comp_metric:
+                             # Ensure count is calculated for all rows if not already
+                             comp_data['Total Unemployed Count'] = (comp_data['Total Unemployment (%)'] / 100) * comp_data['Labor Force Size']
+                        comp_trend = comp_data[['Year', 'Country Name', comp_metric]].copy()
+                    
+                    fig_comp = px.line(comp_trend, x='Year', y=comp_metric, color=group_col,
+                                     title=f'Comparative Trend: {comp_metric}',
+                                     template='plotly_white')
+                    st.plotly_chart(fig_comp, use_container_width=True)
 
         st.markdown('---')
 
@@ -470,27 +522,50 @@ if df is not None:
         with col_g1:
             # Prepare data for Gender Gap
             gender_cols = ['Male Unemployment (%)', 'Female Unemployment (%)']
-            gender_df = year_df.dropna(subset=gender_cols)
-            gender_agg = gender_df.groupby('Continent')[gender_cols].mean().reset_index()
-            gender_melt = gender_agg.melt(id_vars='Continent', var_name='Metric', value_name='Rate')
             
-            fig_gender = px.bar(gender_melt, x='Continent', y='Rate', color='Metric',
-                                barmode='group', title=f'Male vs. Female Unemployment by Region ({selected_year})',
+            # 1. Animated Bar Chart (Yearly Evolution)
+            # We need the full dataset for animation, not just the selected year
+            gender_anim_df = filtered_df.dropna(subset=gender_cols + ['Continent', 'Year'])
+            # Aggregate by Continent and Year
+            gender_anim_agg = gender_anim_df.groupby(['Continent', 'Year'])[gender_cols].mean().reset_index()
+            gender_anim_melt = gender_anim_agg.melt(id_vars=['Continent', 'Year'], var_name='Metric', value_name='Rate')
+            
+            fig_gender = px.bar(gender_anim_melt, x='Continent', y='Rate', color='Metric',
+                                animation_frame='Year', barmode='group',
+                                title='Male vs. Female Unemployment by Region (Animated)',
+                                range_y=[0, gender_anim_melt['Rate'].max() * 1.1], # Fix y-axis
                                 template='plotly_white', color_discrete_sequence=['#1f77b4', '#e377c2'])
             st.plotly_chart(fig_gender, use_container_width=True)
             
+            st.markdown("#### Global Gender Gap Evolution")
+            # 2. Line Chart for Global Gap
+            global_gender = filtered_df.groupby('Year')[gender_cols].mean().reset_index()
+            global_gender['Gender Gap'] = global_gender['Female Unemployment (%)'] - global_gender['Male Unemployment (%)']
+            
+            fig_gap = px.line(global_gender, x='Year', y='Gender Gap',
+                              title='Global Average Gender Unemployment Gap (Female - Male)',
+                              markers=True, template='plotly_white')
+            fig_gap.add_hline(y=0, line_dash="dash", line_color="gray")
+            st.plotly_chart(fig_gap, use_container_width=True)
+            
         with col_g2:
             st.markdown('#### Gender Gap Stats')
-            if not gender_agg.empty:
-                gender_agg['Gap'] = gender_agg['Female Unemployment (%)'] - gender_agg['Male Unemployment (%)']
-                largest_gap_cont = gender_agg.loc[gender_agg['Gap'].idxmax()]
+            if not gender_anim_agg.empty:
+                # Get stats for the currently selected year (from the global slider)
+                curr_stats = gender_anim_agg[gender_anim_agg['Year'] == selected_year].copy()
+                if not curr_stats.empty:
+                    curr_stats['Gap'] = curr_stats['Female Unemployment (%)'] - curr_stats['Male Unemployment (%)']
+                    largest_gap_cont = curr_stats.loc[curr_stats['Gap'].idxmax()]
+                    
+                    st.write(f"**Stats for {selected_year}:**")
+                    st.metric("Largest Gap Region", f"{largest_gap_cont['Continent']}", f"{largest_gap_cont['Gap']:.1f}% Gap")
                 
-                avg_f = gender_df['Female Unemployment (%)'].mean()
-                avg_m = gender_df['Male Unemployment (%)'].mean()
+                # Overall trend stats
+                start_gap = global_gender.iloc[0]['Gender Gap']
+                end_gap = global_gender.iloc[-1]['Gender Gap']
+                st.metric("Global Gap Change", f"{end_gap:.2f}%", f"{end_gap - start_gap:+.2f}% since 1991")
                 
-                st.metric("Global Avg Female Unemp", f"{avg_f:.1f}%")
-                st.metric("Global Avg Male Unemp", f"{avg_m:.1f}%")
-                st.metric("Largest Gap Region", f"{largest_gap_cont['Continent']}", f"{largest_gap_cont['Gap']:.1f}% Gap")
+                st.info("A positive gap means Female unemployment is higher.")
 
         st.markdown('---')
         
