@@ -174,51 +174,58 @@ if df is not None:
                 'Total Unemployed Count': 'sum'
             }).reset_index()
             
-            # Create a subplot with 2 y-axes or 2 rows
-            fig1 = make_subplots(rows=2, cols=1, 
-                                 shared_xaxes=True, 
-                                 vertical_spacing=0.1,
-                                 subplot_titles=('Unemployment Rates (%)', 'Estimated Total Unemployed Population (Count)'))
+            # Create Dual-Axis Chart to show Rate vs Volume
+            fig1 = make_subplots(specs=[[{'secondary_y': True}]])
             
-            # Trace 1: Rates
-            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Total Unemployment (%)'],
-                                mode='lines', name='Total Unemployment (%)', line=dict(color='blue')), row=1, col=1)
-            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Youth Unemployment (%)'],
-                                mode='lines', name='Youth Unemployment (%)', line=dict(color='red')), row=1, col=1)
-            
-            # Trace 2: Counts (Frequency)
+            # Trace 1: Total Unemployed Count (Bars - Background Context)
             fig1.add_trace(go.Bar(x=trend_df['Year'], y=trend_df['Total Unemployed Count'],
-                                name='Total Unemployed (Count)', marker_color='orange', opacity=0.6), row=2, col=1)
+                                name='Total Unemployed Population (Count)', marker_color='lightgray', opacity=0.5), secondary_y=True)
             
-            # Add crisis annotations to the top chart
-            fig1.add_vrect(x0=2008, x1=2009, fillcolor='gray', opacity=0.2, layer='below', line_width=0, annotation_text='2008 Crisis', annotation_position='top left', row=1, col=1)
-            fig1.add_vrect(x0=2020, x1=2021, fillcolor='gray', opacity=0.2, layer='below', line_width=0, annotation_text='COVID-19', annotation_position='top left', row=1, col=1)
+            # Trace 2: Rates (Lines - Foreground Focus)
+            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Total Unemployment (%)'],
+                                mode='lines', name='Total Unemployment Rate (%)', line=dict(color='blue', width=3)), secondary_y=False)
+            fig1.add_trace(go.Scatter(x=trend_df['Year'], y=trend_df['Youth Unemployment (%)'],
+                                mode='lines', name='Youth Unemployment Rate (%)', line=dict(color='red', width=3)), secondary_y=False)
             
-            fig1.update_layout(height=600, template='plotly_white', hovermode='x unified', showlegend=True)
+            # Add crisis annotations
+            fig1.add_vrect(x0=2008, x1=2009, fillcolor='gray', opacity=0.1, layer='below', line_width=0, annotation_text='2008 Crisis', annotation_position='top left')
+            fig1.add_vrect(x0=2020, x1=2021, fillcolor='gray', opacity=0.1, layer='below', line_width=0, annotation_text='COVID-19', annotation_position='top left')
+            
+            fig1.update_layout(
+                title='Global Trends: Unemployment Rates vs. Absolute Counts',
+                xaxis_title='Year',
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                template='plotly_white',
+                hovermode='x unified',
+                height=500
+            )
+            
+            fig1.update_yaxes(title_text='Unemployment Rate (%)', secondary_y=False)
+            fig1.update_yaxes(title_text='Total Unemployed (Count)', secondary_y=True, showgrid=False)
+            
             st.plotly_chart(fig1, use_container_width=True)
 
         with v1_col2:
-            st.markdown('#### Quantitative Insights')
+            st.markdown('#### Rate vs. Volume')
             
             # Calculate stats for the whole period
             max_youth_unemp = trend_df['Youth Unemployment (%)'].max()
             max_youth_year = trend_df.loc[trend_df['Youth Unemployment (%)'].idxmax(), 'Year']
             
-            min_youth_unemp = trend_df['Youth Unemployment (%)'].min()
-            
-            avg_gap = (trend_df['Youth Unemployment (%)'] - trend_df['Total Unemployment (%)']).mean()
-            
             total_unemployed_latest = trend_df.iloc[-1]['Total Unemployed Count']
+            total_unemployed_peak = trend_df['Total Unemployed Count'].max()
             
-            st.metric("Peak Youth Unemployment", f"{max_youth_unemp:.1f}%", f"Year: {int(max_youth_year)}")
-            st.metric("Avg Youth-Total Gap", f"{avg_gap:.1f}%")
-            st.metric("Latest Est. Unemployed", f"{total_unemployed_latest/1e6:.1f}M")
+            st.metric("Peak Youth Rate", f"{max_youth_unemp:.1f}%", f"Year: {int(max_youth_year)}")
+            st.metric("Latest Total Unemployed", f"{total_unemployed_latest/1e6:.1f}M")
+            st.metric("Peak Total Unemployed", f"{total_unemployed_peak/1e6:.1f}M")
             
-            st.info('''
-            **Analysis:**
-            The bar chart ("Frequency Count") shows the absolute magnitude of unemployment, which may rise even if rates are stable due to population growth.
+            st.warning('''
+            **Interpretation Note:**
+            While **Youth Unemployment Rates** (Red Line) are drastically higher, they represent a smaller subset of the population.
             
-            The line chart confirms the "Youth Deficit", with youth rates consistently higher.
+            The **Total Unemployment Rate** (Blue Line) appears lower because it is "diluted" by the larger, more stable Adult workforce.
+            
+            The **Grey Bars** show the actual number of unemployed people, which continues to rise due to population growth even when rates stabilize.
             ''')
 
         st.markdown('---')
