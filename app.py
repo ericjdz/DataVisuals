@@ -6,6 +6,7 @@ from plotly.subplots import make_subplots
 import pycountry
 import pycountry_convert as pc
 import warnings
+import numpy as np
 
 # Suppress warnings
 warnings.filterwarnings('ignore')
@@ -471,44 +472,116 @@ if df is not None:
 
     # --- TAB 4: SYNTHESIS ---
     with tab4:
-        st.subheader('6. Correlation Matrix of Key Indicators')
-        st.caption('**Chart Type:** Heatmap | **RQ1-RQ4 (Synthesis)**')
+        st.subheader('6. Synthesis: Network & Correlations')
+        st.caption('**Chart Type:** Network Graph & Scatter Matrix | **RQ1-RQ4 (Synthesis)**')
         
-        col_s1, col_s2 = st.columns([1, 2])
+        cols = ['Total Unemployment (%)', 'Youth Unemployment (%)', 'GDP per Person ($)', 'Vulnerable Employment (%)', 'Services Employment (%)']
+        corr_df = filtered_df[cols]
+        corr_matrix = corr_df.corr()
         
+        # --- Top Row: Network Graph & Heatmap ---
+        col_s1, col_s2 = st.columns([1, 1])
+        
+        with col_s1:
+            st.markdown("#### Correlation Network")
+            st.write("Visualizing strong relationships (r > 0.5). Blue = Positive, Red = Negative.")
+            
+            # Create Network Graph
+            # 1. Nodes (Circular Layout)
+            indicators = cols
+            N = len(indicators)
+            r = 1
+            node_x = []
+            node_y = []
+            for i in range(N):
+                angle = 2 * np.pi * i / N
+                node_x.append(r * np.cos(angle))
+                node_y.append(r * np.sin(angle))
+            
+            # 2. Edges (Based on Correlation)
+            edge_x = []
+            edge_y = []
+            edge_colors = []
+            
+            # Annotations for edges (optional, maybe too cluttered)
+            
+            for i in range(N):
+                for j in range(i + 1, N):
+                    corr_val = corr_matrix.iloc[i, j]
+                    if abs(corr_val) > 0.5: # Threshold
+                        x0, y0 = node_x[i], node_y[i]
+                        x1, y1 = node_x[j], node_y[j]
+                        edge_x.extend([x0, x1, None])
+                        edge_y.extend([y0, y1, None])
+                        # Color based on sign
+                        color = 'blue' if corr_val > 0 else 'red'
+                        # We can't easily vary color per segment in a single trace unless we use a colorscale or separate traces
+                        # For simplicity, let's use separate traces for Pos and Neg
+            
+            # Re-loop for separate traces
+            edge_traces = []
+            for i in range(N):
+                for j in range(i + 1, N):
+                    corr_val = corr_matrix.iloc[i, j]
+                    if abs(corr_val) > 0.5:
+                        width = abs(corr_val) * 5 # Thickness based on strength
+                        color = 'rgba(0, 0, 255, 0.6)' if corr_val > 0 else 'rgba(255, 0, 0, 0.6)'
+                        
+                        edge_trace = go.Scatter(
+                            x=[node_x[i], node_x[j], None],
+                            y=[node_y[i], node_y[j], None],
+                            line=dict(width=width, color=color),
+                            hoverinfo='none',
+                            mode='lines'
+                        )
+                        edge_traces.append(edge_trace)
+
+            node_trace = go.Scatter(
+                x=node_x, y=node_y,
+                mode='markers+text',
+                text=[c.replace(' (%)', '').replace(' ($)', '') for c in indicators],
+                textposition="top center",
+                marker=dict(size=20, color='lightgrey', line=dict(width=2, color='black')),
+                hoverinfo='text'
+            )
+            
+            fig_net = go.Figure(data=edge_traces + [node_trace])
+            fig_net.update_layout(
+                showlegend=False,
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                margin=dict(b=20,l=5,r=5,t=40),
+                height=400,
+                template='plotly_white'
+            )
+            st.plotly_chart(fig_net, use_container_width=True)
+
         with col_s2:
-            cols = ['Total Unemployment (%)', 'Youth Unemployment (%)', 'GDP per Person ($)', 'Vulnerable Employment (%)', 'Services Employment (%)']
-            corr_df = filtered_df[cols]
-            corr_matrix = corr_df.corr()
-            fig6 = px.imshow(corr_matrix, text_auto=True, title='Correlation Matrix of Key Indicators',
+            st.markdown("#### Correlation Heatmap")
+            fig6 = px.imshow(corr_matrix, text_auto=True, 
                             color_continuous_scale='RdBu_r', origin='lower')
+            fig6.update_layout(height=400)
             st.plotly_chart(fig6, use_container_width=True)
 
-        with col_s1:
-            st.markdown('#### Key Relationships')
-            
-            # Find strongest correlations (excluding self-correlation)
-            # Mask diagonal
-            mask = pd.DataFrame(False, index=corr_matrix.index, columns=corr_matrix.columns)
-            for i in range(len(corr_matrix)):
-                mask.iloc[i, i] = True
-            
-            masked_corr = corr_matrix.mask(mask)
-            
-            strongest_pos = masked_corr.stack().idxmax()
-            max_val = masked_corr.max().max()
-            
-            strongest_neg = masked_corr.stack().idxmin()
-            min_val = masked_corr.min().min()
-            
-            st.metric("Strongest Positive", f"{max_val:.2f}", f"{strongest_pos[0]} & {strongest_pos[1]}")
-            st.metric("Strongest Negative", f"{min_val:.2f}", f"{strongest_neg[0]} & {strongest_neg[1]}")
-            
-            st.write('''
-            **Interpretation:**
-            *   **Services vs. Vulnerable:** Strong negative correlation confirms that expanding the service sector reduces labor vulnerability.
-            *   **Youth vs. Total Unemployment:** Very high positive correlation confirms that youth outcomes are inextricably tied to general labor market health.
-            ''')
+        st.markdown("---")
+        
+        # --- Bottom Row: Scatter Plot Matrix ---
+        st.subheader("7. Scatter Plot Matrix (Detailed View)")
+        st.write("Explore the pairwise relationships between all key indicators. Color-coded by Continent.")
+        
+        # Use a subset of columns for cleaner visualization
+        splom_cols = ['Total Unemployment (%)', 'Youth Unemployment (%)', 'GDP per Person ($)', 'Vulnerable Employment (%)', 'Services Employment (%)']
+        
+        # Downsample for performance if needed, but 180 countries is fine
+        fig_splom = px.scatter_matrix(year_df, # Use year_df (selected year) for cleaner view
+                                   dimensions=splom_cols,
+                                   color="Continent",
+                                   hover_name="Country Name",
+                                   height=800,
+                                   template='plotly_white')
+        fig_splom.update_traces(diagonal_visible=False, showupperhalf=False) # Clean up
+        fig_splom.update_layout(margin=dict(l=20, r=20, t=20, b=20))
+        st.plotly_chart(fig_splom, use_container_width=True)
 
     # --- TAB 5: NEW INSIGHTS ---
     with tab5:
